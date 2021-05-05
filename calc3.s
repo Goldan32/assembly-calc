@@ -21,108 +21,129 @@ DEF BIT_NUMBER 4
 
 
     code
-
+;----------------------------
+;   Fõprogram: r0...r5
+;   szubrutinokban: r6...r12
+;       input: r7, r6
+;       output: r7, r6
+;       IT: r13...r15, fõprogrammal közös: r5,r4
+;   - R0: Op1
+;   - R1: Op2
+;   - R2: SW, majd BT érték
+;   - R3: BTIF érték
+;
+;   Mit csinal?
+;       - Beolvassa a SW, és BT értékeket, és a megfelelo szubrutinba visz
+;---------------------------
 start:
-    mov r0, SW
-    mov r7, SW
-    mov r3, r0
-    AND r3, #SWMASK_Upper
-    SWP r3
-    mov r4, r0
-    AND r4, #SWMASK_Lower
-    mov r1, BT
-    mov r2, BTIF
-    mov BTIF, r2
-    and r1, r2
-    tst r1, #BT0
+    mov r2, SW
+    mov r0, r2
+    AND r0, #SWMASK_Upper
+    SWP r0
+    mov r1, r2
+    AND r1, #SWMASK_Lower
+    mov r2, BT
+    mov r3, BTIF
+    mov BTIF, r3
+    and r2, r3
+    tst r2, #BT0
     jz tst_BT1
-    jsr LADD
+    ADD r0, r1
+    mov LD, r0
+    mov r6, r0      
+    jsr DISP
     jmp start
 tst_BT1:
-    tst r1, #BT1
+    tst r2, #BT1
     jz tst_BT2
-    jsr LSUB
+    SUB r0,r1
+    JC error
+    mov LD, r0
+    mov r6, r0
+    jsr DISP
     jmp start
 tst_BT2:
-    tst r1, #BT2
+    tst r2, #BT2
     jz tst_BT3
     jsr LMUL
     jmp start
 tst_BT3:
-    tst r1, #BT3
+    tst r2, #BT3
     jz start
     jsr LDIV
     jmp start
-
-LADD:
-    ADD r3, r4
-    mov LD, r3
-    mov r6, r3
-    jsr DISP
-    rts
-
-LSUB:
-    SUB r3,r4
-    JC sub_error
-    mov LD, r3
-    mov r6, r3
-    jsr DISP
-    rts
-sub_error:
-    mov r3, #0xFF
-    mov LD, r3
-    rts
-
+    
 LMUL:
-    mov r5, r4
-    mov r4, r3
-    mov r3, #0
+    mov R10, r0
+    mov R11, r1
+    mov R12, #0
 mul_loop:
-    add r3,r4
-    sub r5, #1
+    add R12,R11
+    sub R10, #1
     jnz mul_loop
-    mov LD,r3
-    mov r6, r3
+    mov LD,R12
+    mov r6, R12
     jsr DISP
     rts
+
+;----------------------------
+;   Osztórutin:
+;       Regisztereket változtatja: R6, R7, R8, R9
+;       Funkciók:
+;           - R6: OP2 (osztó)   - maradék
+;           - R7: OP1 (osztandó) - eredmény
+;           - R8: belsõ ciklussváltozó
+;           - R9: algoritmuson belüli maradék
+;
+;   Mit csinal?
+;       - Elosztja R7-et R6-al. Ha R6 == 0, akkor error rutint hív
+;---------------------------
 
 LDIV:
-    cmp r4, #0
-    jz div_error
-    mov r5, #BIT_NUMBER     ; ciklisvaltozo
-    mov r9, r3              ; maradek
-    mov r10, #0              ; eredmeny    
+    mov r7, r0 ; OP1 betöltése a szubrutin regiszterébe
+    mov r6, r1 ; OP2 betöltése a szubrutin regiszterébe
+    cmp r6, #0 ; Amennyiben az zéró osztó -> error
+    jz error
+    mov R8, #BIT_NUMBER     ; ciklisvaltozo
+    mov r9, r7              ; maradek
+    mov r7, #0              ; eredmeny    
 shift_loop:                 ; oszto hatvanyozasa
-    sl0 r4
-    sub r5, #1
+    sl0 R6
+    sub R8, #1
     jnz shift_loop
-    mov r5, #BIT_NUMBER
+    mov R8, #BIT_NUMBER
 div_loop:
-    sr0 r4
-    cmp r9, r4
+    sr0 R6
+    cmp r9, R6
     jc rem_lt_div           ; ha maradek kisebb mint osztohatvany
-    sl1 r10
-    sub r9, r4
+    sl1 r7
+    sub r9, R6
+    JMP check
 rem_lt_div:
-    sl0 r10
-    sub r5, #1
+    sl0 r7
+check:
+    sub R8, #1
     jnz div_loop
-    mov r5, #3
+    mov R8, #4
 divmod_loop:
-    sl0 r10
-    sub r5, #1
+    sl0 r7
+    sub R8, #1
     jnz divmod_loop
-    add r10, r9
-    mov LD, r10
-    mov r6, r10
+    add r7, r9
+    mov LD, r7
+    mov r6, r7      
+    mov r8, #0
     jsr DISP
     rts
-div_error:
+error:
     mov r3, #0xFF
     mov LD, r3
+    mov r6, #0x79
+    jsr DISP
     rts
 
 DISP:
+    mov r7, SW
     mov r9, r6
     and r9, #SWMASK_Lower
     mov r10, #sgtbl
@@ -150,8 +171,39 @@ disp_shift2:
     add r7, r10
     mov r7, (r7)
     mov DIG3, r7
-    rts
     
+    mov r12, #DIG0
+    mov r11, #4
+    mov r10, #0b00001000
+blank_loop:
+    mov r9, r8
+    sl0 r10
+    and r9, r10
+    jz not_blank
+    mov r9, #0
+    mov (r12), r9
+not_blank:
+    sub r11, #1
+    add r12, #1
+    jnz blank_loop
+    
+    mov r12, #DIG0
+    mov r11, #4
+    mov r10, #0b00010000
+dp_loop:
+    mov r9, r8
+    sr0 r10
+    and r9, r10
+    jz not_dp
+    mov r9, (r12)
+    add r9, #0x80
+    mov (r12), r9
+not_dp:
+    sub r11, #1
+    add r12, #1
+    jnz dp_loop
+    
+    rts
 
 
 
