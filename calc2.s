@@ -2,7 +2,7 @@ DEF LD   0x80                ; LED adatregiszter                    (írható/olva
 DEF SW   0x81                ; DIP kapcsoló adatregiszter           (csak olvasható)
 DEF BT   0x84                ; Nyomógomb adatregiszter              (csak olvasható)
 DEF BTIE 0x85                ; Nyomógomb megszakítás eng. regiszter (írható/olvasható)
-DEF BTIF 0x86                ; Nyomógomb megszakítás flag regiszter (olvasható és a bit 1 beírásával törölhetõ)
+DEF BTIF 0x86                ; Nyomógomb megszakítás flag regiszter (olvasható és a bit 1 beírásával törölheto)
 DEF BT0 0x01
 DEF BT1 0x02
 DEF BT2 0x04
@@ -13,7 +13,7 @@ DEF BIT_NUMBER 4
 
     code
 
-start:
+start: ;main
     mov r0, SW
     mov r3, r0
     AND r3, #SWMASK_Upper
@@ -51,14 +51,9 @@ LADD:
 
 LSUB:
     SUB r3,r4
-    JC sub_error
+    JC error
     mov LD, r3
     rts
-sub_error:
-    mov r3, #0xFF
-    mov LD, r3
-    rts
-
 LMUL:
     mov r5, r4
     mov r4, r3
@@ -72,8 +67,8 @@ mul_loop:
 
 LDIV:
     cmp r4, #0
-    jz div_error
-    mov r5, #BIT_NUMBER              ; ciklisváltozó
+    jz error
+    mov r5, #BIT_NUMBER              ; ciklusváltozó
     mov r6, r3              ; maradék
     mov r7, #0              ; eredmény    
 shift_loop:                 ; osztó hatványozása
@@ -87,11 +82,13 @@ div_loop:
     jc rem_lt_div           ; ha maradék kisebb mint osztóhatvány
     sl1 r7
     sub r6, r4
+    JMP check
 rem_lt_div:
     sl0 r7
+check:
     sub r5, #1
     jnz div_loop
-    mov r5, #3
+    mov r5, #4
 divmod_loop:
     sl0 r7
     sub r5, #1
@@ -99,15 +96,8 @@ divmod_loop:
     add r7, r6
     mov LD, r7
     rts
-div_error:
+
+error:
     mov r3, #0xFF
     mov LD, r3
     rts
-
-
-
-
-
-
-
-
