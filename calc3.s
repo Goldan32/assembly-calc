@@ -138,7 +138,7 @@ divmod_loop:
 error:
     mov r3, #0xFF
     mov LD, r3
-    mov r6, #0x79
+    mov r6, #0xEE
     jsr DISP
     rts
 
