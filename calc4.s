@@ -1,8 +1,12 @@
 DEF LD   0x80                ; LED adatregiszter                    (írható/olvasható)
 DEF SW   0x81                ; DIP kapcsoló adatregiszter           (csak olvasható)
+DEF TR   0x82                ; Timer kezdõállapot regiszter         (csak írható)
+DEF TM   0x82                ; Timer számláló regiszter             (csak olvasható)
+DEF TC   0x83                ; Timer parancs regiszter              (csak írható)
+DEF TS   0x83                ; Timer státusz regiszter              (csak olvasható)
 DEF BT   0x84                ; Nyomógomb adatregiszter              (csak olvasható)
 DEF BTIE 0x85                ; Nyomógomb megszakítás eng. regiszter (írható/olvasható)
-DEF BTIF 0x86                ; Nyomógomb megszakítás flag regiszter (olvasható, és a bit 1-be írásával törölhetõ)
+DEF BTIF 0x86                ; Nyomógomb megszakítás flag regiszter (olvasható és a bit 1 beírásával törölhetõ)
 DEF BT0 0x01
 DEF BT1 0x02
 DEF BT2 0x04
@@ -14,6 +18,7 @@ DEF DIG3 0x93                ; Kijelzõ DIG3 adatregiszter           (írható/olva
 DEF SWMASK_Upper  0xF0
 DEF SWMASK_Lower  0x0F
 DEF BIT_NUMBER 4
+DEF TC_INIT 0xF3;
 
     data
     
@@ -21,6 +26,8 @@ DEF BIT_NUMBER 4
 
 
     code
+    jmp start
+    jmp timerit
 ;----------------------------
 ;   Fõprogram: r0...r5
 ;   szubrutinokban: r6...r12
@@ -38,7 +45,12 @@ DEF BIT_NUMBER 4
 ;         ha igen, akkor változik a kijelzés, ha nem akkor nem
 ;---------------------------
 start:
-    
+    cli             ; megszakitas tiltasa
+    mov r4, #121    ; Kezdõállapot init
+    mov TR, r4
+    mov r4, #TC_INIT   ; Idõzítõ konfig: 65536 elõosztás
+    mov TC, r4
+    mov r4, TS
     jsr GET_INPUT
     cmp r5, r2
     jz no_change
@@ -64,6 +76,7 @@ tst_BT1:
     jz tst_BT2
     sub r0,r1
     JC error
+    sti
     mov LD, r0
     mov r6, r0
     jsr STANDARD_PRINT
@@ -78,16 +91,37 @@ tst_BT3:
     jz start
     jsr LDIV
     jmp start
-    
+;----------------------------
+;   Szorzórutin:
+;       Regisztereket változtatja: R6, R9, R10, R11, R12,
+;       Funkciók:
+;           - R6: Eredmény a 7szegmensesnek
+;           - R9: Ciklus iterátor
+;           - R10: Input 1
+;           - R11: Input2
+;           - R12: Szorzás eredménye
+;
+;   Mit csinal?
+;       - Összeszorozza R10 és R11 számot. Az eredményt R12 és R6 tartalmazza
+;---------------------------   
 LMUL:
-    mov R10, r0
-    mov R11, r1
-    mov R12, #0
+    mov R10, r0 ; Input1
+    mov R11, r1 ; Input2
+    mov R12, #0 ;eredmeny
+    mov r9, #BIT_NUMBER ; ciklusszámláló
 mul_loop:
-    add R12,R11
-    sub R10, #1
-    jnz mul_loop
-    mov LD,R12
+    SR0 r11
+    JNC not_adding
+    ADD r12, r10
+    ADD r11, #8     ; körbeforgatás cigányosan (ha más a bitszám akkor ezen is változtatni kell
+not_adding:
+    SR0 r12
+    SUB R9, #1
+    JNZ mul_loop
+    SWP r12
+    AND r12, #0xF0
+    ADD r12, r11
+    mov LD, r12
     mov r6, R12
     jsr STANDARD_PRINT
     rts
@@ -145,15 +179,20 @@ divmod_loop:
     
     rts
 error:
-    mov r8, #0x00
+    sti
     mov r3, #0xFF
     mov LD, r3
     mov r6, #0xEE
-    
+    mov r4, #1
+errloop:
     jsr GET_INPUT
+    cmp r5, r2
+    jnz errend
     jsr CHECK_VALUE
     jsr DISP
-    
+    JMP errloop
+errend:
+    cli
     rts
     
 ;----------------------------
@@ -329,8 +368,22 @@ STANDARD_PRINT:
     jsr CHECK_VALUE
     jsr DISP
 
-
-
+timerit:
+    mov r13, TS
+    tst r13, #0x80;
+    JZ IT_END
+    
+    XOR r4, #1
+    jz blank
+    mov r8, #0x00
+    jmp IT_END
+blank:
+    mov r8, #0x30
+IT_END:
+    rti
+    
+    
+    
 
 
 
