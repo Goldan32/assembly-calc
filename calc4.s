@@ -57,12 +57,7 @@ no_change:
     add r0, r1
     mov LD, r0
     mov r6, r0
-    
-    jsr BIN2BCD
-    jsr GET_INPUT
-    jsr CHECK_VALUE
-    jsr DISP
-    
+    jsr STANDARD_PRINT
     jmp start
 tst_BT1:
     tst r2, #BT1
@@ -71,12 +66,7 @@ tst_BT1:
     JC error
     mov LD, r0
     mov r6, r0
-    
-    jsr BIN2BCD
-    jsr GET_INPUT
-    jsr CHECK_VALUE
-    jsr DISP
-    
+    jsr STANDARD_PRINT
     jmp start
 tst_BT2:
     tst r2, #BT2
@@ -99,12 +89,7 @@ mul_loop:
     jnz mul_loop
     mov LD,R12
     mov r6, R12
-    
-    jsr BIN2BCD
-    jsr GET_INPUT
-    jsr CHECK_VALUE
-    jsr DISP
-    
+    jsr STANDARD_PRINT
     rts
 
 ;----------------------------
@@ -211,7 +196,7 @@ disp_shift2:
     mov r7, (r7)
     mov DIG3, r7
     
-    mov r12, #DIG0
+    mov r12, #DIG0                  ; blank logika
     mov r11, #4
     mov r10, #0b00001000
 blank_loop:
@@ -226,7 +211,7 @@ not_blank:
     sub r11, #1
     jnz blank_loop
     
-    mov r12, #DIG0
+    mov r12, #DIG0                  ; dp logika
     mov r11, #4
     mov r10, #0b00010000
 dp_loop:
@@ -248,10 +233,11 @@ not_dp:
 ;   Bináris BCD átalakító:
 ;       Regisztereket változtatja: R6, R8, R9, R10
 ;       Funkciók:
-;           - R6: Bináris szám  (bemenet)
-;           - R6: BCD szám      (eredmény)
-;           - R8: Ideiglenes tárolás maszkoláshoz
-;           - R9: Ciklusváltozó
+;           - R6 :  Bináris szám  (bemenet)
+;           - R6 :  BCD szám      (eredmény)
+;           - R8 :  Ideiglenes tárolás maszkoláshoz
+;           - R9 :  Ciklusváltozó
+;           - R10: Ideiglenes eredmény
 ;
 ;   Mit csinal?
 ;       - Átalakítja az R6-ban lévõ bináris számot BCD számmá
@@ -280,17 +266,19 @@ not_add3:
     
 ;----------------------------
 ;   Input kezelõ szubrutin:
-;       Regisztereket változtatja: R0, R1, R2, R8
+;       Regisztereket változtatja: R0, R1, R2
 ;       Funkciók:
 ;           - R0 :  Elsõ szám
 ;           - R1 :  Második szám
 ;           - R2 :  Két szám egymás után (hibajelzés miatt kell)
-;           - R8 :  Blank és DP regiszter
 ;
 ;   Mit csinal?
 ;       - Berakja a megfelelõ regiszterekbe a kapcsolók állását
 ;       - R0-ba az elsõ, R1-be a második operandust
-;       - Illegális input esetén "E"-t rak az adott regiszterbe
+;
+;   Indoklás:
+;        - Ezeket a funkciókat a fõprogram látná el normál esetben, viszont
+;          szubrutinba kiszervezve csökken a kód mérete
 ;---------------------------  
 GET_INPUT:
     mov r2, SW
@@ -311,7 +299,7 @@ GET_INPUT:
 ;
 ;   Mit csinal?
 ;       - R2 regiszter tartalmát bemásolja az R7 regiszterbe, kivéve
-;         ha az nem értelmes számjegyet tartalmaz
+;         ha az nem értelmes számjegyet tartalmaz, ezzel megvalósul a hibakezelés
 ;       - DISP elõtt kell hívni annak a paramétereit egyengeti
 ;       - R8 blank vezérlését állítja be megfelelõen
 ;---------------------------  
@@ -332,8 +320,14 @@ ok1:
 ok2:
     rts
     
-    
-    
+;---------------------------------
+;   Gyûjtõ szubrutin eredmény kijelzésére
+;---------------------------------
+STANDARD_PRINT:
+    jsr BIN2BCD
+    jsr GET_INPUT
+    jsr CHECK_VALUE
+    jsr DISP
 
 
 
