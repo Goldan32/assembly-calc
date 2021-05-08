@@ -74,17 +74,27 @@ tst_BT3:
     jmp start
     
 LMUL:
-    mov R10, r0
-    mov R11, r1
-    mov R12, #0
+    mov R10, r0 ; Input1
+    mov R11, r1 ; Input2
+    mov R12, #0 ;eredmeny
+    mov r9, #BIT_NUMBER ; ciklusszámláló
 mul_loop:
-    add R12,R11
-    sub R10, #1
-    jnz mul_loop
-    mov LD,R12
+    SR0 r11
+    JNC not_adding
+    ADD r12, r10
+    ADD r11, #8     ; körbeforgatás cigányosan (ha más a bitszám akkor ezen is változtatni kell
+not_adding:
+    SR0 r12
+    SUB R9, #1
+    JNZ mul_loop
+    SWP r12
+    AND r12, #0xF0
+    ADD r12, r11
+    mov LD, r12
     mov r6, R12
     jsr DISP
     rts
+
 
 ;----------------------------
 ;   Osztórutin:
