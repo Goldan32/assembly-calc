@@ -45,12 +45,12 @@ DEF TC_INIT 0xF3;
 ;         ha igen, akkor változik a kijelzés, ha nem akkor nem
 ;---------------------------
 start:
-    cli             ; megszakitas tiltasa
-    mov r4, #121    ; Kezdõállapot init
-    mov TR, r4
+    cli                ; Megszakítás tiltása, amíg errorhoz nem érünk
+    mov r4, #121       ; Kezdõállapothoz tartozó érték
+    mov TR, r4      
     mov r4, #TC_INIT   ; Idõzítõ konfig: 65536 elõosztás
     mov TC, r4
-    mov r4, TS
+    mov r4, TS         ; TS nullázás
     jsr GET_INPUT
     cmp r5, r2
     jz no_change
@@ -102,14 +102,13 @@ tst_BT3:
 ;           - R12: Szorzás eredménye
 ;
 ;   Mit csinal?
-;       - Összeszorozza R10 és R11 számot. Az eredményt R12 és R6 tartalmazza
+;       - Összeszorozza R10 és R11 számot. Az eredményt R12 és R6 tartalmazza. Írásbeli szorzás mintájára.
 ;---------------------------   
 LMUL:
     mov R10, r0 ; Input1
     mov R11, r1 ; Input2
     mov R12, #0 ;eredmeny
     mov r9, #BIT_NUMBER ; ciklusszámláló
-    SUB r9, #1
 mul_loop:
     SR0 r11
     JNC NOT
@@ -180,7 +179,7 @@ error:
     mov r3, #0xFF
     mov LD, r3
     mov r4, #1
-    sti
+    sti         ; IT engedélyezés
 errloop:
     mov r6, #0xEE
     jsr GET_INPUT
