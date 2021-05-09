@@ -50,7 +50,8 @@ start:
     jz tst_BT1
     ADD r0, r1
     mov LD, r0
-    mov r6, r0      
+    mov r6, r0
+    mov r8, #0
     jsr DISP
     jmp start
 tst_BT1:
@@ -60,6 +61,7 @@ tst_BT1:
     JC error
     mov LD, r0
     mov r6, r0
+    mov r8, #0
     jsr DISP
     jmp start
 tst_BT2:
@@ -90,6 +92,7 @@ NOT:
     JNZ mul_loop
     mov LD, R12
     mov r6, R12
+    mov r8, #0
     jsr DISP
     rts
 
@@ -140,13 +143,14 @@ divmod_loop:
     add r7, r9
     mov LD, r7
     mov r6, r7      
-    mov r8, #0
+    mov r8, #0b00000100
     jsr DISP
     rts
 error:
     mov r3, #0xFF
     mov LD, r3
     mov r6, #0xEE
+    mov r8, #0
     jsr DISP
     rts
 
