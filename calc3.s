@@ -78,19 +78,17 @@ LMUL:
     mov R11, r1 ; Input2
     mov R12, #0 ;eredmeny
     mov r9, #BIT_NUMBER ; ciklusszámláló
+
+    SUB r9, #1
 mul_loop:
     SR0 r11
-    JNC not_adding
+    JNC NOT
     ADD r12, r10
-    ADD r11, #8     ; körbeforgatás cigányosan (ha más a bitszám akkor ezen is változtatni kell
-not_adding:
-    SR0 r12
-    SUB R9, #1
+NOT:
+    SL0 r10
+    SUB r9, #1
     JNZ mul_loop
-    SWP r12
-    AND r12, #0xF0
-    ADD r12, r11
-    mov LD, r12
+    mov LD, R12
     mov r6, R12
     jsr DISP
     rts
@@ -193,8 +191,8 @@ blank_loop:
     mov r9, #0
     mov (r12), r9
 not_blank:
-    sub r11, #1
     add r12, #1
+    sub r11, #1
     jnz blank_loop
     
     mov r12, #DIG0
@@ -209,8 +207,8 @@ dp_loop:
     add r9, #0x80
     mov (r12), r9
 not_dp:
-    sub r11, #1
     add r12, #1
+    sub r11, #1
     jnz dp_loop
     
     rts
