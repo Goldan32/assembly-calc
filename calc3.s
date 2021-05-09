@@ -80,8 +80,6 @@ LMUL:
     mov R11, r1 ; Input2
     mov R12, #0 ;eredmeny
     mov r9, #BIT_NUMBER ; ciklusszámláló
-
-    SUB r9, #1
 mul_loop:
     SR0 r11
     JNC NOT
