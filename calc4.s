@@ -1,8 +1,12 @@
 DEF LD   0x80                ; LED adatregiszter                    (írható/olvasható)
 DEF SW   0x81                ; DIP kapcsoló adatregiszter           (csak olvasható)
+DEF TR   0x82                ; Timer kezdõállapot regiszter         (csak írható)
+DEF TM   0x82                ; Timer számláló regiszter             (csak olvasható)
+DEF TC   0x83                ; Timer parancs regiszter              (csak írható)
+DEF TS   0x83                ; Timer státusz regiszter              (csak olvasható)
 DEF BT   0x84                ; Nyomógomb adatregiszter              (csak olvasható)
 DEF BTIE 0x85                ; Nyomógomb megszakítás eng. regiszter (írható/olvasható)
-DEF BTIF 0x86                ; Nyomógomb megszakítás flag regiszter (olvasható, és a bit 1-be írásával törölhetõ)
+DEF BTIF 0x86                ; Nyomógomb megszakítás flag regiszter (olvasható és a bit 1 beírásával törölhetõ)
 DEF BT0 0x01
 DEF BT1 0x02
 DEF BT2 0x04
@@ -14,6 +18,7 @@ DEF DIG3 0x93                ; Kijelzõ DIG3 adatregiszter           (írható/olva
 DEF SWMASK_Upper  0xF0
 DEF SWMASK_Lower  0x0F
 DEF BIT_NUMBER 4
+DEF TC_INIT 0xF3;
 
     data
     
@@ -21,6 +26,8 @@ DEF BIT_NUMBER 4
 
 
     code
+    jmp start
+    jmp timerit
 ;----------------------------
 ;   Fõprogram: r0...r5
 ;   szubrutinokban: r6...r12
@@ -38,7 +45,12 @@ DEF BIT_NUMBER 4
 ;         ha igen, akkor változik a kijelzés, ha nem akkor nem
 ;---------------------------
 start:
-    
+    cli                ; Megszakítás tiltása, amíg errorhoz nem érünk
+    mov r4, #121       ; Kezdõállapothoz tartozó érték
+    mov TR, r4      
+    mov r4, #TC_INIT   ; Idõzítõ konfig: 65536 elõosztás
+    mov TC, r4
+    mov r4, TS         ; TS nullázás
     jsr GET_INPUT
     cmp r5, r2
     jz no_change
@@ -47,7 +59,6 @@ start:
     jsr DISP
     mov r5, SW
 no_change:
-    
     mov r2, BT
     mov r3, BTIF
     mov BTIF, r3
@@ -64,6 +75,7 @@ tst_BT1:
     jz tst_BT2
     sub r0,r1
     JC error
+    sti
     mov LD, r0
     mov r6, r0
     jsr STANDARD_PRINT
@@ -78,19 +90,36 @@ tst_BT3:
     jz start
     jsr LDIV
     jmp start
-    
+;----------------------------
+;   Szorzórutin:
+;       Regisztereket változtatja: R6, R9, R10, R11, R12,
+;       Funkciók:
+;           - R6: Eredmény a 7szegmensesnek
+;           - R9: Ciklus iterátor
+;           - R10: Input 1
+;           - R11: Input2
+;           - R12: Szorzás eredménye
+;   Mit csinal?
+;       - Összeszorozza R10 és R11 számot. Az eredményt R12 és R6 tartalmazza. Írásbeli szorzás mintájára.
+;---------------------------   
 LMUL:
-    mov R10, r0
-    mov R11, r1
-    mov R12, #0
+    mov R10, r0 ; Input1
+    mov R11, r1 ; Input2
+    mov R12, #0 ;eredmeny
+    mov r9, #BIT_NUMBER ; ciklusszámláló
 mul_loop:
-    add R12,R11
-    sub R10, #1
-    jnz mul_loop
-    mov LD,R12
+    SR0 r11
+    JNC NOT
+    ADD r12, r10
+NOT:
+    SL0 r10
+    SUB r9, #1
+    JNZ mul_loop
+    mov LD, R12
     mov r6, R12
     jsr STANDARD_PRINT
     rts
+    
 
 ;----------------------------
 ;   Osztórutin:
@@ -100,8 +129,7 @@ mul_loop:
 ;           - R7: OP1 (osztandó) - eredmény
 ;           - R8: belsõ ciklussváltozó
 ;           - R9: algoritmuson belüli maradék
-;
-;   Mit csinal?
+;   Mit csinál?
 ;       - Elosztja R7-et R6-al. Ha R6 == 0, akkor error rutint hív
 ;---------------------------
 LDIV:
@@ -110,9 +138,9 @@ LDIV:
     cmp r6, #0 ; Amennyiben az zéró osztó -> error
     jz error
     mov R8, #BIT_NUMBER     ; ciklisvaltozo
-    mov r9, r7              ; maradek
-    mov r7, #0              ; eredmeny    
-shift_loop:                 ; oszto hatvanyozasa
+    mov r9, r7              ; maradék
+    mov r7, #0              ; eredmény    
+shift_loop:                 ; osztó hatványozása
     sl0 R6
     sub R8, #1
     jnz shift_loop
@@ -120,7 +148,7 @@ shift_loop:                 ; oszto hatvanyozasa
 div_loop:
     sr0 R6
     cmp r9, R6
-    jc rem_lt_div           ; ha maradek kisebb mint osztohatvany
+    jc rem_lt_div           ; ha maradék kisebb mint osztóhatvány
     sl1 r7
     sub r9, R6
     JMP check
@@ -137,23 +165,26 @@ divmod_loop:
     add r7, r9
     mov LD, r7
     mov r6, r7
-    
     jsr GET_INPUT
     jsr CHECK_VALUE
     add r8, #0b00000100
     jsr DISP
-    
     rts
 error:
-    mov r8, #0x00
     mov r3, #0xFF
     mov LD, r3
+    mov r4, #1
+    sti         ; IT engedélyezés
+errloop:
     mov r6, #0xEE
-    
     jsr GET_INPUT
-    jsr CHECK_VALUE
-    jsr DISP
-    
+    mov r6, #0xEE
+    mov r7, r2
+    cmp r5, r2
+    jnz errend
+    JMP errloop
+errend:
+    cli
     rts
     
 ;----------------------------
@@ -164,7 +195,7 @@ error:
 ;           - R7: bal oldali két digit
 ;           - R8: blank és dp konfiguráció
 ;
-;   Mit csinal?
+;   Mit csinál?
 ;       Kijelzõre írja a {R7[7:4], R7[3:0], R6[7:4], R6[3:0]} számot
 ;---------------------------
 DISP:
@@ -195,7 +226,6 @@ disp_shift2:
     add r7, r10
     mov r7, (r7)
     mov DIG3, r7
-    
     mov r12, #DIG0                  ; blank logika
     mov r11, #4
     mov r10, #0b00001000
@@ -210,7 +240,6 @@ not_blank:
     add r12, #1
     sub r11, #1
     jnz blank_loop
-    
     mov r12, #DIG0                  ; dp logika
     mov r11, #4
     mov r10, #0b00010000
@@ -226,7 +255,6 @@ not_dp:
     add r12, #1
     sub r11, #1
     jnz dp_loop
-    
     rts
 
 ;----------------------------
@@ -239,8 +267,8 @@ not_dp:
 ;           - R9 :  Ciklusváltozó
 ;           - R10: Ideiglenes eredmény
 ;
-;   Mit csinal?
-;       - Átalakítja az R6-ban lévõ bináris számot BCD számmá
+;   Mit csinál?
+;       - Átalakítja az R6-ban lévõ bináris számot BCD számmá. Felhasznált: Shift Add 3 algoritmus
 ;   Fontos:
 ;       - A bemenet 8 bites bináris szám minden esetben
 ;---------------------------
@@ -255,12 +283,10 @@ b2b_loop:
     jc not_add3
     add r10, #3
 not_add3:
-    
     sl0 r6
     rlc r10
     sub r9, #1
     jnz b2b_loop
-    
     mov r6, r10
     rts
     
@@ -272,7 +298,7 @@ not_add3:
 ;           - R1 :  Második szám
 ;           - R2 :  Két szám egymás után (hibajelzés miatt kell)
 ;
-;   Mit csinal?
+;   Mit csinál?
 ;       - Berakja a megfelelõ regiszterekbe a kapcsolók állását
 ;       - R0-ba az elsõ, R1-be a második operandust
 ;
@@ -288,16 +314,14 @@ GET_INPUT:
     mov r1, r2
     and r1, #SWMASK_Lower
     rts
-    
-
-
+  
 ;----------------------------
 ;   Számjegy ellenõrzõ:
 ;       Regisztereket változtatja: R2, R7, R8
 ;       Funkciók:
 ;              - Nem lényeges
 ;
-;   Mit csinal?
+;   Mit csinál?
 ;       - R2 regiszter tartalmát bemásolja az R7 regiszterbe, kivéve
 ;         ha az nem értelmes számjegyet tartalmaz, ezzel megvalósul a hibakezelés
 ;       - DISP elõtt kell hívni annak a paramétereit egyengeti
@@ -328,9 +352,34 @@ STANDARD_PRINT:
     jsr GET_INPUT
     jsr CHECK_VALUE
     jsr DISP
-
-
-
+    rts
+;----------------------------
+;   TIMER - IT rutin:
+;       Regisztereket változtatja: R13, R4, R8
+;       Funkciók:
+;              - R4: Jelzõ bit (elõzõ állapotot tartalmazza
+;              - R8: A disp logikához tartozó regiszter, ennek segítségével lehet az elsötétüléseket vezérelni
+;              - R13: Ezzel nézzük meg, hogy valóban Timer megszakítás érkezett-e
+;
+;   Mit csinál?
+;       - 0.5 másodpercenként meghívódik, ha hiba keletkezik, és az utolsó két digitet villogtatja
+;---------------------------  
+timerit:
+    mov r13, TS
+    tst r13, #0x80;
+    JZ IT_END
+    XOR r4, #1
+    jz blank
+    mov r8, #0x00
+    jmp IT_END
+blank:
+    mov r8, #0x30
+IT_END:
+    jsr DISP
+    rti
+    
+    
+    
 
 
 
