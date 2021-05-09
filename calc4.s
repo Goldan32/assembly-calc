@@ -177,15 +177,18 @@ divmod_loop:
     
     rts
 error:
-    sti
-    mov r7, #0xFF
-    mov LD, r7
+    mov r3, #0xFF
+    mov LD, r3
     mov r4, #1
+    sti
 errloop:
     mov r6, #0xEE
     jsr GET_INPUT
+    mov r6, #0xEE
+    mov r7, r2
     cmp r5, r2
-    jmp not_blank
+    jnz errend
+  
     JMP errloop
 errend:
     cli
@@ -363,6 +366,7 @@ STANDARD_PRINT:
     jsr GET_INPUT
     jsr CHECK_VALUE
     jsr DISP
+    rts
 
 timerit:
     mov r13, TS
@@ -376,6 +380,7 @@ timerit:
 blank:
     mov r8, #0x30
 IT_END:
+    jsr DISP
     rti
     
     
