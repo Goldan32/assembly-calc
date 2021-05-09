@@ -109,22 +109,20 @@ LMUL:
     mov R11, r1 ; Input2
     mov R12, #0 ;eredmeny
     mov r9, #BIT_NUMBER ; ciklusszámláló
+    SUB r9, #1
 mul_loop:
     SR0 r11
-    JNC not_adding
+    JNC NOT
     ADD r12, r10
-    ADD r11, #8     ; körbeforgatás cigányosan (ha más a bitszám akkor ezen is változtatni kell
-not_adding:
-    SR0 r12
-    SUB R9, #1
+NOT:
+    SL0 r10
+    SUB r9, #1
     JNZ mul_loop
-    SWP r12
-    AND r12, #0xF0
-    ADD r12, r11
-    mov LD, r12
+    mov LD, R12
     mov r6, R12
     jsr STANDARD_PRINT
     rts
+    
 
 ;----------------------------
 ;   Osztórutin:
@@ -180,16 +178,14 @@ divmod_loop:
     rts
 error:
     sti
-    mov r3, #0xFF
-    mov LD, r3
-    mov r6, #0xEE
+    mov r7, #0xFF
+    mov LD, r7
     mov r4, #1
 errloop:
+    mov r6, #0xEE
     jsr GET_INPUT
     cmp r5, r2
-    jnz errend
-    jsr CHECK_VALUE
-    jsr DISP
+    jmp not_blank
     JMP errloop
 errend:
     cli
